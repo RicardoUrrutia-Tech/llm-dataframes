@@ -2,9 +2,8 @@ import streamlit as st
 import pandas as pd
 from langchain_experimental.agents import create_pandas_dataframe_agent
 from langchain_groq import ChatGroq
-from io import BytesIO
+from io import BytesIO, StringIO
 import re
-from io import StringIO
 
 # ------------------------------
 # Configuración de la página
@@ -76,12 +75,20 @@ if prompt := st.chat_input("Escribe tu pregunta sobre el dataset..."):
 
         # Mostrar respuesta del asistente
         with st.chat_message("assistant"):
-            # Verificar si la respuesta contiene tabla en markdown
-            if re.search(r"\|.+\|", response) and re.search(r"\|[-]+\|", response):
+            # Detectar si la respuesta contiene tabla en markdown
+            table_lines = [line for line in response.splitlines() if "|" in line]
+
+            # Eliminar la línea de guiones típica de Markdown (|-----|)
+            table_lines = [line for line in table_lines if not re.match(r'^\|\s*-+\s*\|', line.strip())]
+
+            if table_lines:
                 try:
-                    # Extraer tabla de texto markdown
-                    table_text = "\n".join([line for line in response.splitlines() if "|" in line])
+                    table_text = "\n".join(table_lines)
                     df_table = pd.read_csv(StringIO(table_text), sep="|", engine="python").dropna(axis=1, how="all")
+
+                    # Limpiar nombres de columnas
+                    df_table.columns = [col.strip() for col in df_table.columns]
+
                     st.write("📊 Tabla detectada en la respuesta:")
                     st.dataframe(df_table)
                 except Exception:
