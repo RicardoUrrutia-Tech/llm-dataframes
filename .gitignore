@@ -1,0 +1,16 @@
+# Ignorar la carpeta de configuración de Streamlit
+.streamlit/secrets.toml
+
+# Archivos temporales de Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pkl
+
+# Archivos temporales de Jupyter/Colab
+.ipynb_checkpoints
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
