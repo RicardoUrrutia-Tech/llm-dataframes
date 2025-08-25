@@ -3,6 +3,8 @@ import pandas as pd
 from langchain_experimental.agents import create_pandas_dataframe_agent
 from langchain_groq import ChatGroq
 from io import BytesIO
+import re
+from io import StringIO
 
 # ------------------------------
 # Configuración de la página
@@ -66,13 +68,26 @@ if prompt := st.chat_input("Escribe tu pregunta sobre el dataset..."):
         with st.spinner("🔎 Analizando datos..."):
             system_prompt = (
                 "Eres un experto en análisis de datos. Responde SIEMPRE en idioma español, "
-                "con explicaciones claras y ejemplos cuando sea posible."
+                "con explicaciones claras y ejemplos cuando sea posible. "
+                "Si muestras datos tabulares, usa siempre formato de tabla Markdown."
             )
             query = f"{system_prompt}\n\nPregunta del usuario: {prompt}"
             response = st.session_state["agent"].run(query)
 
+        # Mostrar respuesta del asistente
         with st.chat_message("assistant"):
-            st.markdown(response)
+            # Verificar si la respuesta contiene tabla en markdown
+            if re.search(r"\|.+\|", response) and re.search(r"\|[-]+\|", response):
+                try:
+                    # Extraer tabla de texto markdown
+                    table_text = "\n".join([line for line in response.splitlines() if "|" in line])
+                    df_table = pd.read_csv(StringIO(table_text), sep="|", engine="python").dropna(axis=1, how="all")
+                    st.write("📊 Tabla detectada en la respuesta:")
+                    st.dataframe(df_table)
+                except Exception:
+                    st.markdown(response)
+            else:
+                st.markdown(response)
 
         st.session_state["messages"].append({"role": "assistant", "content": response})
     else:
@@ -83,19 +98,15 @@ if prompt := st.chat_input("Escribe tu pregunta sobre el dataset..."):
 # ------------------------------
 if st.session_state["messages"]:
     if st.button("📥 Descargar reporte de la conversación"):
-        # Creamos un buffer de memoria
         buffer = BytesIO()
-        # Construimos el texto del reporte
         report = "Reporte de Análisis con LLMs\n\n"
         for msg in st.session_state["messages"]:
             role = "👤 Usuario" if msg["role"] == "user" else "🤖 Asistente"
             report += f"{role}:\n{msg['content']}\n\n"
 
-        # Guardamos en el buffer
         buffer.write(report.encode("utf-8"))
         buffer.seek(0)
 
-        # Botón de descarga
         st.download_button(
             label="📄 Descargar como TXT",
             data=buffer,
